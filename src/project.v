@@ -32,7 +32,8 @@ module tt_um_toxicfox_phoenix (
     end
 
     wire tx;
-    wire boot_done;
+    wire [6:0] gpio_out;
+    wire [6:0] gpio_in = {ui_in[7:2], ui_in[0]};
     wire flash_cs_n;
     wire ram_cs_n;
     wire sclk;
@@ -43,7 +44,8 @@ module tt_um_toxicfox_phoenix (
         .reset(reset_pipe[1]),
         .rx_pin(rx_sync),
         .tx_pin(tx),
-        .boot_done(boot_done),
+        .gpio_in(gpio_in),
+        .gpio_out(gpio_out),
         .flash_cs_n(flash_cs_n),
         .ram_cs_n(ram_cs_n),
         .mem_sclk(sclk),
@@ -53,8 +55,8 @@ module tt_um_toxicfox_phoenix (
 
     assign uio_out = {1'b1, ram_cs_n, 2'b11, sclk, 1'b0, mosi, flash_cs_n};
     assign uio_oe = 8'b11111011;
-    assign uo_out = {6'd0, boot_done, tx};
-    wire unused = &{ui_in[7:2], ui_in[0], uio_in[7:3], uio_in[1:0], 1'b0};
+    assign uo_out = {gpio_out, tx};
+    wire unused = &{uio_in[7:3], uio_in[1:0], 1'b0};
 endmodule
 `default_nettype wire
 
@@ -158,7 +160,8 @@ module phoenixTtSoc #(
     input reset,
     input rx_pin,
     output tx_pin,
-    output reg boot_done,
+    input [6:0] gpio_in,
+    output [6:0] gpio_out,
     output flash_cs_n,
     output ram_cs_n,
     output mem_sclk,
@@ -185,6 +188,13 @@ module phoenixTtSoc #(
     reg [15:0] boot_address;
     reg [7:0] boot_byte;
     reg [7:0] mem_data;
+    reg boot_done;
+    wire [7:0] cpu_gpio_out;
+    assign gpio_out = cpu_gpio_out[6:0];
+    
+    wire [4:0] gpio_interrupts = {gpio_in[4:2],
+                                 gpio_in[1] | gpio_in[6],
+                                 gpio_in[0] | gpio_in[5]};
 
     wire cpu_reset = reset || !boot_done;
     wire decode_ce = boot_done && state == CPU_DECODE;
@@ -225,9 +235,9 @@ module phoenixTtSoc #(
         .mem_read(mem_read),
         .io_out(io_out),
         .io_in(io_in),
-        .gpio_out(),
-        .gpio_in(8'd0),
-        .external_interrupts(5'd0),
+        .gpio_out(cpu_gpio_out),
+        .gpio_in({1'b0, gpio_in}),
+        .external_interrupts(gpio_interrupts),
         .uart_interrupt(uart_interrupt),
         .timer_out()
     );
@@ -338,8 +348,7 @@ module phoenixTtSoc #(
 
                 BOOT_WRITE_GAP:
                     begin
-                        // TODO: only for testing
-                        if (boot_address == 16'h500) begin
+                        if (boot_address == 16'hffff) begin
                             boot_done <= 1;
                             state <= CPU_DECODE;
                         end else begin
@@ -919,6 +928,7 @@ module phoenixCore (
     wire [7:0] alu_data, register_data;
     wire [15:0] register_address, stack_address;
     wire mc_io_out;
+    wire mc_io_in;
     wire mc_software_interrupt;
 // ----------------------- internal registers -----------------------
 
@@ -926,7 +936,7 @@ module phoenixCore (
     phoenixMicrocode microcode (
         .clk(clk),
         .enable(decode_ce),
-        .mask(state == STATE_EXECUTE_MC && !reset && !halt),
+        .mask(state == STATE_EXECUTE_MC && !reset),
         .PUT_A_ADDR(PUT_A_ADDR),
         .PUT_IR0_DB(PUT_IR0_DB),
         .PUT_IR1_DB(PUT_IR1_DB),
@@ -949,7 +959,7 @@ module phoenixCore (
         .ALU_SUB(ALU_SUB),
         .ALU_NAND(ALU_NAND),
         .ALU_NOR(ALU_NOR),
-        .IO_IN(IO_IN),
+        .IO_IN(mc_io_in),
         .IO_OUT(mc_io_out),
         .PUT_B_ADDR(PUT_B_ADDR),
         .PUT_IADDR_ADDR(PUT_IADDR_ADDR),
@@ -1031,6 +1041,7 @@ module phoenixCore (
     assign mem_write_request = SAVE_DB_MEM && !reset && !halt;
     assign mem_write = mem_write_request && run_ce;
     assign IO_OUT = mc_io_out && run_ce && !reset;
+    assign IO_IN = mc_io_in && !halt && !reset;
     assign SOFTWARE_INTERRUPT = mc_software_interrupt && run_ce && !reset;
     assign interrupt_done = INT_RET_TO_ADDR && run_ce && !reset;
     wire fetching = state == STATE_FETCH_0 || state == STATE_FETCH_1 || state == STATE_FETCH_2;
@@ -1070,20 +1081,20 @@ module phoenixCore (
                             interrupt_return_pc <= pc;
                             state <= STATE_INTERRUPT_PREPARE;
                         end else begin
-                            i0 <= data_bus;
+                            i0 <= read_data;
                             pc <= pc + 1;
                             state <= STATE_FETCH_1;
                         end
                     end
                 STATE_FETCH_1:
                     begin
-                        i1 <= data_bus;
+                        i1 <= read_data;
                         pc <= pc + 1;
                         state <= STATE_FETCH_2;
                     end
                 STATE_FETCH_2:
                     begin
-                        i2 <= data_bus;
+                        i2 <= read_data;
                         pc <= pc + 1;
                         state <= STATE_EXECUTE_MC;
                         mc_counter <= 3'd0;
@@ -1756,11 +1767,9 @@ module phoenixUart #(
     input rx_pin,
     output uart_int
 );
-    localparam [31:0] DEFAULT_SCALER = CLK_FREQ / UART_FREQ > 0 ? CLK_FREQ / UART_FREQ - 1 : 0;
+    localparam [15:0] DEFAULT_SCALER = CLK_FREQ / UART_FREQ > 0 ? CLK_FREQ / UART_FREQ - 1 : 0;
 
-    // Like Inferno: one UART bit lasts scaler + 1 input clock cycles.
-    // f003-f006 expose the scaler in little-endian byte order.
-    reg [31:0] scaler;
+    reg [15:0] scaler;
     wire busy;
     wire sendFinish;
     wire recvFinish;
@@ -1801,8 +1810,6 @@ module phoenixUart #(
                 16'hf002: read_data = {6'd0, receive_valid, busy};
                 16'hf003: read_data = scaler[7:0];
                 16'hf004: read_data = scaler[15:8];
-                16'hf005: read_data = scaler[23:16];
-                16'hf006: read_data = scaler[31:24];
                 default: read_data = 8'd0;
             endcase
         end
@@ -1818,8 +1825,6 @@ module phoenixUart #(
                 case (address_bus)
                     16'hf003: scaler[7:0] <= write_data;
                     16'hf004: scaler[15:8] <= write_data;
-                    16'hf005: scaler[23:16] <= write_data;
-                    16'hf006: scaler[31:24] <= write_data;
                     default:
                         begin
                         end
@@ -1844,15 +1849,15 @@ endmodule
 module uart_tx (
     input clk,
     input reset,
-    input [31:0] scaler,
+    input [15:0] scaler,
     input [7:0] din,
     input en,
     output tx,
     output reg finish,
     output reg busy
 );
-    reg [31:0] counter;
-    reg [31:0] frame_scaler;
+    reg [15:0] counter;
+    reg [15:0] frame_scaler;
     reg [9:0] frame;
     reg [3:0] bitpos;
     
@@ -1896,7 +1901,7 @@ endmodule
 module uart_rx (
     input clk,
     input reset,
-    input [31:0] scaler,
+    input [15:0] scaler,
     input rx,
     output reg [7:0] dout,
     output reg finish
@@ -1910,8 +1915,8 @@ module uart_rx (
     (* async_reg = "true" *) reg rx_sync;
 
     reg [1:0] state;
-    reg [31:0] counter;
-    reg [31:0] frame_scaler;
+    reg [15:0] counter;
+    reg [15:0] frame_scaler;
     reg [2:0] bitpos;
     reg [7:0] data;
 
