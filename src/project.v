@@ -338,7 +338,8 @@ module phoenixTtSoc #(
 
                 BOOT_WRITE_GAP:
                     begin
-                        if (boot_address == 16'hffff) begin
+                        // TODO: only for testing
+                        if (boot_address == 16'h1000) begin
                             boot_done <= 1;
                             state <= CPU_DECODE;
                         end else begin
