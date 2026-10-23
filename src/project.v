@@ -1286,7 +1286,7 @@ module phoenixMicrocode (
     localparam [42:0] S_PUT_A_ADDR = 43'd1 << 0;
     localparam [42:0] S_PUT_IR0_DB = 43'd1 << 1;
     localparam [42:0] S_PUT_IR1_DB = 43'd1 << 2;
-    localparam [42:0] S_SAVE_DB_IR0 = 43'd1 << 3;
+    localparam [42:0] S_SAVE_DB_IR0 = 43'd1;
     localparam [42:0] S_SAVE_DB_IR1 = 43'd1 << 4;
     localparam [42:0] S_PUT_IIMM_DB = 43'd1 << 5;
     localparam [42:0] S_SAVE_DB_ALUA = 43'd1 << 6;
@@ -1313,15 +1313,15 @@ module phoenixMicrocode (
     localparam [42:0] S_SAVE_ADDR_B = 43'd1 << 27;
     localparam [42:0] S_INT_RET_TO_ADDR = 43'd1 << 28;
     localparam [42:0] S_SOFTWARE_INTERRUPT = 43'd1 << 29;
-    localparam [42:0] S_FINISH = 43'd1 << 31;
-    localparam [42:0] S_SAVE_PCB_IF_OF = 43'd1 << 32;
-    localparam [42:0] S_CLEAR_FG = 43'd1 << 33;
-    localparam [42:0] S_ALU_ADO = 43'd1 << 34;
-    localparam [42:0] S_ALU_SBO = 43'd1 << 35;
-    localparam [42:0] S_SAVE_IH = 43'd1 << 36;
-    localparam [42:0] S_PUT_FG_DB = 43'd1 << 37;
-    localparam [42:0] S_PUT_DB_FG = 43'd1 << 38;
-    localparam [42:0] S_SP_UP = 43'd1 << 39;
+    localparam [42:0] S_FINISH = 43'd11;
+    localparam [42:0] S_SAVE_PCB_IF_OF = 43'd12;
+    localparam [42:0] S_CLEAR_FG = 43'd13;
+    localparam [42:0] S_ALU_ADO = 43'd14;
+    localparam [42:0] S_ALU_SBO = 43'd15;
+    localparam [42:0] S_SAVE_IH = 43'd16;
+    localparam [42:0] S_PUT_FG_DB = 43'd17;
+    localparam [42:0] S_PUT_DB_FG = 43'd18;
+    localparam [42:0] S_SP_UP = 43'd19;
     localparam [42:0] S_SP_DOWN = 43'd1 << 40;
     localparam [42:0] S_SAVE_ADDR_SP = 43'd1 << 41;
     localparam [42:0] S_PUT_SP_ADDR = 43'd1 << 42;
@@ -1331,261 +1331,261 @@ module phoenixMicrocode (
     always @(posedge clk) begin
         if (enable) begin
             case (index)
-                I_NOP << 3 | MS_0: m <= S_FINISH;
+                {I_NOP, MS_0}: m <= S_FINISH;
 
-                I_MOV << 3 | MS_0: m <= S_PUT_IR1_DB | S_SAVE_DB_IR0;
-                I_MOV << 3 | MS_1: m <= S_FINISH;
+                {I_MOV, MS_0}: m <= S_PUT_IR1_DB | S_SAVE_DB_IR0;
+                {I_MOV, MS_1}: m <= S_FINISH;
 
-                I_LOD << 3 | MS_0: m <= S_PUT_IIMM_DB | S_SAVE_DB_IR0;
-                I_LOD << 3 | MS_1: m <= S_FINISH;
+                {I_LOD, MS_0}: m <= S_PUT_IIMM_DB | S_SAVE_DB_IR0;
+                {I_LOD, MS_1}: m <= S_FINISH;
 
-                I_OUTA << 3 | MS_0: m <= S_PUT_A_ADDR | S_PUT_IR0_DB | S_IO_OUT;
-                I_OUTA << 3 | MS_1: m <= S_FINISH;
+                {I_OUTA, MS_0}: m <= S_PUT_A_ADDR | S_PUT_IR0_DB | S_IO_OUT;
+                {I_OUTA, MS_1}: m <= S_FINISH;
 
-                I_INPA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_DB_IR0 | S_IO_IN;
-                I_INPA << 3 | MS_1: m <= S_FINISH;
+                {I_INPA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_DB_IR0 | S_IO_IN;
+                {I_INPA, MS_1}: m <= S_FINISH;
 
-                I_JNZA << 3 | MS_0: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
-                I_JNZA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNZA << 3 | MS_2: m <= S_FINISH;
+                {I_JNZA, MS_0}: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
+                {I_JNZA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNZA, MS_2}: m <= S_FINISH;
 
-                I_ADD << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_ADD << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_ADD << 3 | MS_2: m <= S_ALU_ADD;
-                I_ADD << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_ADD << 3 | MS_4: m <= S_FINISH;
+                {I_ADD, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_ADD, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_ADD, MS_2}: m <= S_ALU_ADD;
+                {I_ADD, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_ADD, MS_4}: m <= S_FINISH;
 
-                I_ADDI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_ADDI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_ADDI << 3 | MS_2: m <= S_ALU_ADD;
-                I_ADDI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_ADDI << 3 | MS_4: m <= S_FINISH;
+                {I_ADDI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_ADDI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_ADDI, MS_2}: m <= S_ALU_ADD;
+                {I_ADDI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_ADDI, MS_4}: m <= S_FINISH;
 
-                I_SUB << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_SUB << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_SUB << 3 | MS_2: m <= S_ALU_SUB;
-                I_SUB << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_SUB << 3 | MS_4: m <= S_FINISH;
+                {I_SUB, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_SUB, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_SUB, MS_2}: m <= S_ALU_SUB;
+                {I_SUB, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_SUB, MS_4}: m <= S_FINISH;
 
-                I_SUBI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_SUBI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_SUBI << 3 | MS_2: m <= S_ALU_SUB;
-                I_SUBI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_SUBI << 3 | MS_4: m <= S_FINISH;
+                {I_SUBI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_SUBI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_SUBI, MS_2}: m <= S_ALU_SUB;
+                {I_SUBI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_SUBI, MS_4}: m <= S_FINISH;
 
-                I_NAD << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_NAD << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_NAD << 3 | MS_2: m <= S_ALU_NAND;
-                I_NAD << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_NAD << 3 | MS_4: m <= S_FINISH;
+                {I_NAD, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_NAD, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_NAD, MS_2}: m <= S_ALU_NAND;
+                {I_NAD, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_NAD, MS_4}: m <= S_FINISH;
 
-                I_NADI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_NADI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_NADI << 3 | MS_2: m <= S_ALU_NAND;
-                I_NADI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_NADI << 3 | MS_4: m <= S_FINISH;
+                {I_NADI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_NADI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_NADI, MS_2}: m <= S_ALU_NAND;
+                {I_NADI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_NADI, MS_4}: m <= S_FINISH;
 
-                I_NOR << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_NOR << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_NOR << 3 | MS_2: m <= S_ALU_NOR;
-                I_NOR << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_NOR << 3 | MS_4: m <= S_FINISH;
+                {I_NOR, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_NOR, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_NOR, MS_2}: m <= S_ALU_NOR;
+                {I_NOR, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_NOR, MS_4}: m <= S_FINISH;
 
-                I_NORI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_NORI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_NORI << 3 | MS_2: m <= S_ALU_NOR;
-                I_NORI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_NORI << 3 | MS_4: m <= S_FINISH;
+                {I_NORI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_NORI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_NORI, MS_2}: m <= S_ALU_NOR;
+                {I_NORI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_NORI, MS_4}: m <= S_FINISH;
 
-                I_CMP << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_CMP << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB | S_CLEAR_FG;
-                I_CMP << 3 | MS_2: m <= S_ALU_CMP;
-                I_CMP << 3 | MS_3: m <= S_FINISH;
+                {I_CMP, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_CMP, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB | S_CLEAR_FG;
+                {I_CMP, MS_2}: m <= S_ALU_CMP;
+                {I_CMP, MS_3}: m <= S_FINISH;
 
-                I_CMPI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_CMPI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB | S_CLEAR_FG;
-                I_CMPI << 3 | MS_2: m <= S_ALU_CMP;
-                I_CMPI << 3 | MS_3: m <= S_FINISH;
+                {I_CMPI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_CMPI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB | S_CLEAR_FG;
+                {I_CMPI, MS_2}: m <= S_ALU_CMP;
+                {I_CMPI, MS_3}: m <= S_FINISH;
 
-                I_JMPA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_PCB;
-                I_JMPA << 3 | MS_1: m <= S_PC_FLUSH;
-                I_JMPA << 3 | MS_3: m <= S_FINISH;
+                {I_JMPA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_PCB;
+                {I_JMPA, MS_1}: m <= S_PC_FLUSH;
+                {I_JMPA, MS_3}: m <= S_FINISH;
 
-                I_JZRA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_Z;
-                I_JZRA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JZRA << 3 | MS_2: m <= S_FINISH;
+                {I_JZRA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_Z;
+                {I_JZRA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JZRA, MS_2}: m <= S_FINISH;
 
-                I_LDRA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_DB_IR0 | S_PUT_MEM_DB;
-                I_LDRA << 3 | MS_1: m <= S_FINISH;
+                {I_LDRA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_DB_IR0 | S_PUT_MEM_DB;
+                {I_LDRA, MS_1}: m <= S_FINISH;
 
-                I_WTRA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_DB_MEM | S_PUT_IR0_DB;
-                I_WTRA << 3 | MS_1: m <= S_FINISH;
+                {I_WTRA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_DB_MEM | S_PUT_IR0_DB;
+                {I_WTRA, MS_1}: m <= S_FINISH;
 
-                I_JEQA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_EQ;
-                I_JEQA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JEQA << 3 | MS_2: m <= S_FINISH;
+                {I_JEQA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_EQ;
+                {I_JEQA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JEQA, MS_2}: m <= S_FINISH;
 
-                I_JNQA << 3 | MS_0: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
-                I_JNQA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNQA << 3 | MS_2: m <= S_FINISH;
+                {I_JNQA, MS_0}: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
+                {I_JNQA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNQA, MS_2}: m <= S_FINISH;
 
-                I_JNZB << 3 | MS_0: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
-                I_JNZB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNZB << 3 | MS_2: m <= S_FINISH;
+                {I_JNZB, MS_0}: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
+                {I_JNZB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNZB, MS_2}: m <= S_FINISH;
 
-                I_JMPB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_PCB;
-                I_JMPB << 3 | MS_1: m <= S_PC_FLUSH;
-                I_JMPB << 3 | MS_3: m <= S_FINISH;
+                {I_JMPB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_PCB;
+                {I_JMPB, MS_1}: m <= S_PC_FLUSH;
+                {I_JMPB, MS_3}: m <= S_FINISH;
 
-                I_JZRB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_Z;
-                I_JZRB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JZRB << 3 | MS_2: m <= S_FINISH;
+                {I_JZRB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_Z;
+                {I_JZRB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JZRB, MS_2}: m <= S_FINISH;
 
-                I_JEQB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_EQ;
-                I_JEQB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JEQB << 3 | MS_2: m <= S_FINISH;
+                {I_JEQB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_EQ;
+                {I_JEQB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JEQB, MS_2}: m <= S_FINISH;
 
-                I_JNQB << 3 | MS_0: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
-                I_JNQB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNQB << 3 | MS_2: m <= S_FINISH;
+                {I_JNQB, MS_0}: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
+                {I_JNQB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNQB, MS_2}: m <= S_FINISH;
 
-                I_LDRB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_DB_IR0 | S_PUT_MEM_DB;
-                I_LDRB << 3 | MS_1: m <= S_FINISH;
+                {I_LDRB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_DB_IR0 | S_PUT_MEM_DB;
+                {I_LDRB, MS_1}: m <= S_FINISH;
 
-                I_WTRB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_DB_MEM | S_PUT_IR0_DB;
-                I_WTRB << 3 | MS_1: m <= S_FINISH;
+                {I_WTRB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_DB_MEM | S_PUT_IR0_DB;
+                {I_WTRB, MS_1}: m <= S_FINISH;
 
-                I_JMPI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB;
-                I_JMPI << 3 | MS_1: m <= S_PC_FLUSH;
-                I_JMPI << 3 | MS_3: m <= S_FINISH;
+                {I_JMPI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB;
+                {I_JMPI, MS_1}: m <= S_PC_FLUSH;
+                {I_JMPI, MS_3}: m <= S_FINISH;
 
-                I_JEQI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_EQ;
-                I_JEQI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JEQI << 3 | MS_2: m <= S_FINISH;
+                {I_JEQI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_EQ;
+                {I_JEQI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JEQI, MS_2}: m <= S_FINISH;
 
-                I_JNQI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
-                I_JNQI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNQI << 3 | MS_2: m <= S_FINISH;
+                {I_JNQI, MS_0}: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_EQ;
+                {I_JNQI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNQI, MS_2}: m <= S_FINISH;
 
-                I_JZRI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_Z;
-                I_JZRI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JZRI << 3 | MS_2: m <= S_FINISH;
+                {I_JZRI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_Z;
+                {I_JZRI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JZRI, MS_2}: m <= S_FINISH;
 
-                I_JNZI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
-                I_JNZI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNZI << 3 | MS_2: m <= S_FINISH;
+                {I_JNZI, MS_0}: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_Z;
+                {I_JNZI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNZI, MS_2}: m <= S_FINISH;
 
-                I_LADA << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_A;
-                I_LADA << 3 | MS_1: m <= S_FINISH;
+                {I_LADA, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_A;
+                {I_LADA, MS_1}: m <= S_FINISH;
 
-                I_LADB << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_B;
-                I_LADB << 3 | MS_1: m <= S_FINISH;
+                {I_LADB, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_B;
+                {I_LADB, MS_1}: m <= S_FINISH;
 
-                I_OUTB << 3 | MS_0: m <= S_PUT_B_ADDR | S_PUT_IR0_DB | S_IO_OUT;
-                I_OUTB << 3 | MS_1: m <= S_FINISH;
+                {I_OUTB, MS_0}: m <= S_PUT_B_ADDR | S_PUT_IR0_DB | S_IO_OUT;
+                {I_OUTB, MS_1}: m <= S_FINISH;
 
-                I_INPB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_DB_IR0 | S_IO_IN;
-                I_INPB << 3 | MS_1: m <= S_FINISH;
+                {I_INPB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_DB_IR0 | S_IO_IN;
+                {I_INPB, MS_1}: m <= S_FINISH;
 
-                I_IRE << 3 | MS_0: m <= S_INT_RET_TO_ADDR | S_SAVE_PCB;
-                I_IRE << 3 | MS_1: m <= S_PC_FLUSH;
-                I_IRE << 3 | MS_2: m <= S_FINISH;
+                {I_IRE, MS_0}: m <= S_INT_RET_TO_ADDR | S_SAVE_PCB;
+                {I_IRE, MS_1}: m <= S_PC_FLUSH;
+                {I_IRE, MS_2}: m <= S_FINISH;
 
-                I_INT << 3 | MS_0: m <= S_SOFTWARE_INTERRUPT;
-                I_INT << 3 | MS_1: m <= S_FINISH;
+                {I_INT, MS_0}: m <= S_SOFTWARE_INTERRUPT;
+                {I_INT, MS_1}: m <= S_FINISH;
 
-                I_JOFA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_OF;
-                I_JOFA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JOFA << 3 | MS_2: m <= S_FINISH;
+                {I_JOFA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_PCB_IF_OF;
+                {I_JOFA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JOFA, MS_2}: m <= S_FINISH;
 
-                I_JOFB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_OF;
-                I_JOFB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JOFB << 3 | MS_2: m <= S_FINISH;
+                {I_JOFB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_PCB_IF_OF;
+                {I_JOFB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JOFB, MS_2}: m <= S_FINISH;
 
-                I_JOFI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_OF;
-                I_JOFI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JOFI << 3 | MS_2: m <= S_FINISH;
+                {I_JOFI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_PCB_IF_OF;
+                {I_JOFI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JOFI, MS_2}: m <= S_FINISH;
 
-                I_JNOA << 3 | MS_0: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
-                I_JNOA << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNOA << 3 | MS_2: m <= S_FINISH;
+                {I_JNOA, MS_0}: m <= S_PUT_A_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
+                {I_JNOA, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNOA, MS_2}: m <= S_FINISH;
 
-                I_JNOB << 3 | MS_0: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
-                I_JNOB << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNOB << 3 | MS_2: m <= S_FINISH;
+                {I_JNOB, MS_0}: m <= S_PUT_B_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
+                {I_JNOB, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNOB, MS_2}: m <= S_FINISH;
 
-                I_JNOI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
-                I_JNOI << 3 | MS_1: m <= S_PC_FLUSH_COND;
-                I_JNOI << 3 | MS_2: m <= S_FINISH;
+                {I_JNOI, MS_0}: m <= S_PUT_IADDR_ADDR | S_COND_INVERT | S_SAVE_PCB_IF_OF;
+                {I_JNOI, MS_1}: m <= S_PC_FLUSH_COND;
+                {I_JNOI, MS_2}: m <= S_FINISH;
 
-                I_ADO << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_ADO << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_ADO << 3 | MS_2: m <= S_ALU_ADO;
-                I_ADO << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_ADO << 3 | MS_4: m <= S_FINISH;
+                {I_ADO, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_ADO, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_ADO, MS_2}: m <= S_ALU_ADO;
+                {I_ADO, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_ADO, MS_4}: m <= S_FINISH;
 
-                I_ADOI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_ADOI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_ADOI << 3 | MS_2: m <= S_ALU_ADO;
-                I_ADOI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_ADOI << 3 | MS_4: m <= S_FINISH;
+                {I_ADOI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_ADOI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_ADOI, MS_2}: m <= S_ALU_ADO;
+                {I_ADOI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_ADOI, MS_4}: m <= S_FINISH;
 
-                I_SBO << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_SBO << 3 | MS_1: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
-                I_SBO << 3 | MS_2: m <= S_ALU_SBO;
-                I_SBO << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_SBO << 3 | MS_4: m <= S_FINISH;
+                {I_SBO, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_SBO, MS_1}: m <= S_PUT_IR1_DB | S_SAVE_DB_ALUB;
+                {I_SBO, MS_2}: m <= S_ALU_SBO;
+                {I_SBO, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_SBO, MS_4}: m <= S_FINISH;
 
-                I_SBOI << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
-                I_SBOI << 3 | MS_1: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
-                I_SBOI << 3 | MS_2: m <= S_ALU_SBO;
-                I_SBOI << 3 | MS_3: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
-                I_SBOI << 3 | MS_4: m <= S_FINISH;
+                {I_SBOI, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_ALUA;
+                {I_SBOI, MS_1}: m <= S_PUT_IIMM_DB | S_SAVE_DB_ALUB;
+                {I_SBOI, MS_2}: m <= S_ALU_SBO;
+                {I_SBOI, MS_3}: m <= S_PUT_ALUOUT_DB | S_SAVE_DB_IR0;
+                {I_SBOI, MS_4}: m <= S_FINISH;
 
-                I_CFG << 3 | MS_0: m <= S_CLEAR_FG;
-                I_CFG << 3 | MS_1: m <= S_FINISH;
+                {I_CFG, MS_0}: m <= S_CLEAR_FG;
+                {I_CFG, MS_1}: m <= S_FINISH;
 
-                I_LIHA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_IH;
-                I_LIHA << 3 | MS_1: m <= S_FINISH;
+                {I_LIHA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_IH;
+                {I_LIHA, MS_1}: m <= S_FINISH;
 
-                I_LIHB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_IH;
-                I_LIHB << 3 | MS_1: m <= S_FINISH;
+                {I_LIHB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_IH;
+                {I_LIHB, MS_1}: m <= S_FINISH;
 
-                I_LIHI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_IH;
-                I_LIHI << 3 | MS_1: m <= S_FINISH;
+                {I_LIHI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_IH;
+                {I_LIHI, MS_1}: m <= S_FINISH;
 
-                I_WFG << 3 | MS_0: m <= S_PUT_IR0_DB | S_PUT_DB_FG;
-                I_WFG << 3 | MS_1: m <= S_FINISH;
+                {I_WFG, MS_0}: m <= S_PUT_IR0_DB | S_PUT_DB_FG;
+                {I_WFG, MS_1}: m <= S_FINISH;
 
-                I_RFG << 3 | MS_0: m <= S_SAVE_DB_IR0 | S_PUT_FG_DB;
-                I_RFG << 3 | MS_1: m <= S_FINISH;
+                {I_RFG, MS_0}: m <= S_SAVE_DB_IR0 | S_PUT_FG_DB;
+                {I_RFG, MS_1}: m <= S_FINISH;
 
-                I_LSPA << 3 | MS_0: m <= S_PUT_A_ADDR | S_SAVE_ADDR_SP;
-                I_LSPA << 3 | MS_1: m <= S_FINISH;
+                {I_LSPA, MS_0}: m <= S_PUT_A_ADDR | S_SAVE_ADDR_SP;
+                {I_LSPA, MS_1}: m <= S_FINISH;
 
-                I_LSPB << 3 | MS_0: m <= S_PUT_B_ADDR | S_SAVE_ADDR_SP;
-                I_LSPB << 3 | MS_1: m <= S_FINISH;
+                {I_LSPB, MS_0}: m <= S_PUT_B_ADDR | S_SAVE_ADDR_SP;
+                {I_LSPB, MS_1}: m <= S_FINISH;
 
-                I_LSPI << 3 | MS_0: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_SP;
-                I_LSPI << 3 | MS_1: m <= S_FINISH;
+                {I_LSPI, MS_0}: m <= S_PUT_IADDR_ADDR | S_SAVE_ADDR_SP;
+                {I_LSPI, MS_1}: m <= S_FINISH;
 
-                I_RSPA << 3 | MS_0: m <= S_SAVE_ADDR_A | S_PUT_SP_ADDR;
-                I_RSPA << 3 | MS_1: m <= S_FINISH;
+                {I_RSPA, MS_0}: m <= S_SAVE_ADDR_A | S_PUT_SP_ADDR;
+                {I_RSPA, MS_1}: m <= S_FINISH;
 
-                I_RSPB << 3 | MS_0: m <= S_SAVE_ADDR_B | S_PUT_SP_ADDR;
-                I_RSPB << 3 | MS_1: m <= S_FINISH;
+                {I_RSPB, MS_0}: m <= S_SAVE_ADDR_B | S_PUT_SP_ADDR;
+                {I_RSPB, MS_1}: m <= S_FINISH;
 
-                I_PUTI << 3 | MS_0: m <= S_PUT_IIMM_DB | S_SAVE_DB_MEM | S_PUT_SP_ADDR;
-                I_PUTI << 3 | MS_1: m <= S_SP_DOWN;
-                I_PUTI << 3 | MS_2: m <= S_FINISH;
+                {I_PUTI, MS_0}: m <= S_PUT_IIMM_DB | S_SAVE_DB_MEM | S_PUT_SP_ADDR;
+                {I_PUTI, MS_1}: m <= S_SP_DOWN;
+                {I_PUTI, MS_2}: m <= S_FINISH;
 
-                I_PUT << 3 | MS_0: m <= S_PUT_IR0_DB | S_SAVE_DB_MEM | S_PUT_SP_ADDR;
-                I_PUT << 3 | MS_1: m <= S_SP_DOWN;
-                I_PUT << 3 | MS_2: m <= S_FINISH;
+                {I_PUT, MS_0}: m <= S_PUT_IR0_DB | S_SAVE_DB_MEM | S_PUT_SP_ADDR;
+                {I_PUT, MS_1}: m <= S_SP_DOWN;
+                {I_PUT, MS_2}: m <= S_FINISH;
 
-                I_POP << 3 | MS_0: m <= S_SP_UP;
-                I_POP << 3 | MS_1: m <= S_PUT_MEM_DB | S_SAVE_DB_IR0 | S_PUT_SP_ADDR;
-                I_POP << 3 | MS_2: m <= S_FINISH;
+                {I_POP, MS_0}: m <= S_SP_UP;
+                {I_POP, MS_1}: m <= S_PUT_MEM_DB | S_SAVE_DB_IR0 | S_PUT_SP_ADDR;
+                {I_POP, MS_2}: m <= S_FINISH;
                 default: m <= 43'd0;
             endcase
         end
