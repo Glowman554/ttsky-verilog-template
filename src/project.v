@@ -339,7 +339,7 @@ module phoenixTtSoc #(
                 BOOT_WRITE_GAP:
                     begin
                         // TODO: only for testing
-                        if (boot_address == 16'h1000) begin
+                        if (boot_address == 16'h500) begin
                             boot_done <= 1;
                             state <= CPU_DECODE;
                         end else begin
@@ -1756,6 +1756,11 @@ module phoenixUart #(
     input rx_pin,
     output uart_int
 );
+    localparam [31:0] DEFAULT_SCALER = CLK_FREQ / UART_FREQ > 0 ? CLK_FREQ / UART_FREQ - 1 : 0;
+
+    // Like Inferno: one UART bit lasts scaler + 1 input clock cycles.
+    // f003-f006 expose the scaler in little-endian byte order.
+    reg [31:0] scaler;
     wire busy;
     wire sendFinish;
     wire recvFinish;
@@ -1766,9 +1771,10 @@ module phoenixUart #(
     reg receive_valid;
     wire send = io_out && address_bus == 16'hf000 && !busy;
 
-    uart_tx #(.clk_freq(CLK_FREQ), .uart_freq(UART_FREQ)) tx (
+    uart_tx tx (
         .clk(clk),
         .reset(reset),
+        .scaler(scaler),
         .din(write_data),
         .en(send),
         .tx(tx_pin),
@@ -1776,9 +1782,10 @@ module phoenixUart #(
         .busy(busy)
     );
 
-    uart_rx #(.CLK_FREQ(CLK_FREQ), .UART_FREQ(UART_FREQ)) rx (
+    uart_rx rx (
         .clk(clk),
         .reset(reset),
+        .scaler(scaler),
         .rx(rx_pin),
         .dout(recvData),
         .finish(recvFinish)
@@ -1792,15 +1799,33 @@ module phoenixUart #(
                 16'hf000: read_data = busy ? (sendData == 0 ? 8'h01 : sendData) : 8'd0;
                 16'hf001: read_data = recvData;
                 16'hf002: read_data = {6'd0, receive_valid, busy};
+                16'hf003: read_data = scaler[7:0];
+                16'hf004: read_data = scaler[15:8];
+                16'hf005: read_data = scaler[23:16];
+                16'hf006: read_data = scaler[31:24];
+                default: read_data = 8'd0;
             endcase
         end
     end
 
     always @(posedge clk) begin
         if (reset) begin
+            scaler <= DEFAULT_SCALER;
             sendData <= 0;
             receive_valid <= 0;
         end else begin
+            if (io_out) begin
+                case (address_bus)
+                    16'hf003: scaler[7:0] <= write_data;
+                    16'hf004: scaler[15:8] <= write_data;
+                    16'hf005: scaler[23:16] <= write_data;
+                    16'hf006: scaler[31:24] <= write_data;
+                    default:
+                        begin
+                        end
+                endcase
+            end
+
             if (send) begin
                 sendData <= write_data;
             end
@@ -1816,22 +1841,18 @@ module phoenixUart #(
     end
 endmodule
 
-module uart_tx #(
-    parameter clk_freq = 27000000,
-    parameter uart_freq = 115200
-) (
+module uart_tx (
     input clk,
     input reset,
+    input [31:0] scaler,
     input [7:0] din,
     input en,
     output tx,
     output reg finish,
     output reg busy
 );
-    localparam PERIOD = clk_freq / uart_freq;
-    localparam WIDTH = $clog2(PERIOD) < 1 ? 1 : $clog2(PERIOD);
-
-    reg [WIDTH-1:0] counter;
+    reg [31:0] counter;
+    reg [31:0] frame_scaler;
     reg [9:0] frame;
     reg [3:0] bitpos;
     
@@ -1840,6 +1861,7 @@ module uart_tx #(
     always @(posedge clk) begin
         if (reset) begin
             counter <= 0;
+            frame_scaler <= 0;
             frame <= 10'h3ff;
             bitpos <= 0;
             busy <= 0;
@@ -1849,12 +1871,13 @@ module uart_tx #(
             if (!busy) begin
                 if (en) begin
                     frame <= {1'b1, din, 1'b0};
-                    counter <= PERIOD - 1;
+                    counter <= scaler;
+                    frame_scaler <= scaler;
                     bitpos <= 0;
                     busy <= 1;
                 end
             end else if (counter == 0) begin
-                counter <= PERIOD - 1;
+                counter <= frame_scaler;
                 frame <= {1'b1, frame[9:1]};
 
                 if (bitpos == 9) begin
@@ -1870,26 +1893,25 @@ module uart_tx #(
     end
 endmodule
 
-module uart_rx #(
-    parameter CLK_FREQ = 27000000,
-    parameter UART_FREQ = 115200
-) (
+module uart_rx (
     input clk,
     input reset,
+    input [31:0] scaler,
     input rx,
     output reg [7:0] dout,
     output reg finish
 );
-    localparam PERIOD = CLK_FREQ / UART_FREQ;
-    localparam HALF_PERIOD = PERIOD / 2;
-    localparam WIDTH = $clog2(PERIOD) < 1 ? 1 : $clog2(PERIOD);
-    localparam IDLE = 2'd0, START = 2'd1, DATA = 2'd2, STOP = 2'd3;
+    localparam IDLE = 2'd0;
+    localparam START = 2'd1;
+    localparam DATA = 2'd2;
+    localparam STOP = 2'd3;
 
     (* async_reg = "true" *) reg rx_meta;
     (* async_reg = "true" *) reg rx_sync;
 
     reg [1:0] state;
-    reg [WIDTH-1:0] counter;
+    reg [31:0] counter;
+    reg [31:0] frame_scaler;
     reg [2:0] bitpos;
     reg [7:0] data;
 
@@ -1899,6 +1921,7 @@ module uart_rx #(
             rx_sync <= 1;
             state <= IDLE;
             counter <= 0;
+            frame_scaler <= 0;
             bitpos <= 0;
             data <= 0;
             dout <= 0;
@@ -1909,13 +1932,14 @@ module uart_rx #(
             finish <= 0;
             case (state)
                 IDLE: if (!rx_sync) begin
-                    counter <= HALF_PERIOD - 1;
+                    counter <= scaler >> 1;
+                    frame_scaler <= scaler;
                     state <= START;
                 end
 
                 START: if (counter == 0) begin
                     if (!rx_sync) begin
-                        counter <= PERIOD - 1;
+                        counter <= frame_scaler;
                         bitpos <= 0;
                         state <= DATA;
                     end else begin
@@ -1927,7 +1951,7 @@ module uart_rx #(
                 
                 DATA: if (counter == 0) begin
                     data[bitpos] <= rx_sync;
-                    counter <= PERIOD - 1;
+                    counter <= frame_scaler;
                     if (bitpos == 7) begin
                         state <= STOP;
                     end else begin
