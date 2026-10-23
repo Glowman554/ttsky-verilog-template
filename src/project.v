@@ -10,7 +10,9 @@ module tt_um_toxicfox_phoenix (
     input rst_n
 );
     wire reset_request = !rst_n || !ena;
+    /* verilator lint_off SYNCASYNCNET */
     (* async_reg = "true" *) reg [1:0] reset_pipe;
+    /* verilator lint_on SYNCASYNCNET */
     always @(posedge clk or posedge reset_request) begin
         if (reset_request) begin
             reset_pipe <= 2'b11;
@@ -157,7 +159,9 @@ module phoenixTtSoc #(
     parameter [23:0] FLASH_OFFSET = 24'd0
 ) (
     input clk,
+    /* verilator lint_off SYNCASYNCNET */
     input reset,
+    /* verilator lint_on SYNCASYNCNET */
     input rx_pin,
     output tx_pin,
     input [6:0] gpio_in,
@@ -189,11 +193,11 @@ module phoenixTtSoc #(
     reg [7:0] boot_byte;
     reg [7:0] mem_data;
     wire [7:0] cpu_gpio_out;
+    wire mem_write;
+    wire timer_out;
     assign gpio_out = cpu_gpio_out[6:0];
 
-    wire [4:0] gpio_interrupts = {gpio_in[4:2],
-                                 gpio_in[1] | gpio_in[6],
-                                 gpio_in[0] | gpio_in[5]};
+    wire [4:0] gpio_interrupts = gpio_in[4:0];
 
     wire peripheral_reset = reset || state < CPU_DECODE;
     wire decode_ce = state == CPU_DECODE;
@@ -230,7 +234,7 @@ module phoenixTtSoc #(
         .uart_data(uart_data),
         .write_data(write_data),
         .address_bus(address_bus),
-        .mem_write(),
+        .mem_write(mem_write),
         .mem_write_request(mem_write_request),
         .mem_read(mem_read),
         .io_out(io_out),
@@ -239,7 +243,7 @@ module phoenixTtSoc #(
         .gpio_in({1'b0, gpio_in}),
         .external_interrupts(gpio_interrupts),
         .uart_interrupt(uart_interrupt),
-        .timer_out()
+        .timer_out(timer_out)
     );
 
     phoenixUart #(
@@ -681,6 +685,7 @@ module phoenixTimer #(
                 base_address: read_data = prescaler;
                 base_address + 16'd1: read_data = compare;
                 base_address + 16'd2: read_data = control;
+                default: begin end
             endcase
         end
     end
@@ -701,6 +706,7 @@ module phoenixTimer #(
                     base_address: prescaler <= write_data;
                     base_address + 16'd1: compare <= write_data;
                     base_address + 16'd2: control <= write_data;
+                    default: begin end
                 endcase
             end
 
@@ -1004,7 +1010,7 @@ module phoenixCore (
         .fg(fg)
     );
 
-    phoenixRegisters registers (
+    phoenixRegisters register_file (
         .clk(clk),
         .reset(reset),
         .enable(run_ce),
@@ -1110,6 +1116,7 @@ module phoenixCore (
                         pc <= interrupt_handler;
                         state <= STATE_FETCH_0;
                     end
+                default: begin end
             endcase
 
             if (FINISH) begin
@@ -1674,8 +1681,6 @@ module phoenixRegisters (
     
     assign address_out = PUT_A_ADDR ? {registers[1], registers[0]} :
                                       {registers[3], registers[2]};
-    // Select the address before reading the register file. Two independent
-    // indexed reads followed by a byte mux duplicate the 16:1 read network.
     wire [3:0] read_index = PUT_IR0_DB ? ir0 : ir1;
     assign data_out = registers[read_index];
 
@@ -1782,7 +1787,7 @@ module phoenixUart #(
     reg receive_valid;
     wire send = io_out && address_bus == 16'hf000 && !busy;
 
-    uart_tx tx (
+    uart_tx transmitter (
         .clk(clk),
         .reset(reset),
         .scaler(scaler),
@@ -1793,7 +1798,7 @@ module phoenixUart #(
         .busy(busy)
     );
 
-    uart_rx rx (
+    uart_rx receiver (
         .clk(clk),
         .reset(reset),
         .scaler(scaler),
