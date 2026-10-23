@@ -1674,48 +1674,47 @@ module phoenixRegisters (
     
     assign address_out = PUT_A_ADDR ? {registers[1], registers[0]} :
                                       {registers[3], registers[2]};
-    // One logical byte-read port, selected by the microcode's source priority.
+    // Select the address before reading the register file. Two independent
+    // indexed reads followed by a byte mux duplicate the 16:1 read network.
     wire [3:0] read_index = PUT_IR0_DB ? ir0 : ir1;
     assign data_out = registers[read_index];
 
-    // Isolate the shared write bus at four bank inputs. Preserve these
-    // boundaries through synthesis so each local byte drives only four words.
-    wire [7:0] bank_data [0:3];
-    genvar bank;
-    generate
-        for (bank = 0; bank < 4; bank = bank + 1) begin: write_banks
-            wire selected = (SAVE_DB_IR0 && ir0[3:2] == bank[1:0]) ||
-                            (SAVE_DB_IR1 && ir1[3:2] == bank[1:0]);
-            (* keep = "true" *) wire [7:0] local_data = data_in & {8{selected}};
-            assign bank_data[bank] = local_data;
-        end
-    endgenerate
+    always @(posedge clk) begin
+        if (reset) begin
+            registers[0] <= 8'd0;
+            registers[1] <= 8'd0;
+            registers[2] <= 8'd0;
+            registers[3] <= 8'd0;
+            registers[4] <= 8'd0;
+            registers[5] <= 8'd0;
+            registers[6] <= 8'd0;
+            registers[7] <= 8'd0;
+            registers[8] <= 8'd0;
+            registers[9] <= 8'd0;
+            registers[10] <= 8'd0;
+            registers[11] <= 8'd0;
+            registers[12] <= 8'd0;
+            registers[13] <= 8'd0;
+            registers[14] <= 8'd0;
+            registers[15] <= 8'd0;
+        end else if (enable) begin
+            if (SAVE_DB_IR0) begin
+                registers[ir0] <= data_in;
+            end
 
-    genvar word;
-    generate
-        for (word = 0; word < 16; word = word + 1) begin: write_words
-            always @(posedge clk) begin
-                if (reset) begin
-                    registers[word] <= 8'd0;
-                end else if (enable) begin
-                    if ((SAVE_DB_IR0 && ir0 == word[3:0]) ||
-                        (SAVE_DB_IR1 && ir1 == word[3:0])) begin
-                        registers[word] <= bank_data[word / 4];
-                    end
-
-                    // Address saves retain priority over byte writes.
-                    if (word == 0 || word == 1) begin
-                        if (SAVE_ADDR_A)
-                            registers[word] <= word == 0 ? address_in[7:0] : address_in[15:8];
-                    end
-                    if (word == 2 || word == 3) begin
-                        if (SAVE_ADDR_B)
-                            registers[word] <= word == 2 ? address_in[7:0] : address_in[15:8];
-                    end
-                end
+            if (SAVE_DB_IR1) begin
+                registers[ir1] <= data_in;
+            end
+            
+            if (SAVE_ADDR_A) begin
+                {registers[1], registers[0]} <= address_in;
+            end
+            
+            if (SAVE_ADDR_B) begin
+                {registers[3], registers[2]} <= address_in;
             end
         end
-    endgenerate
+    end
 endmodule
 
 module phoenixStackRegister (
