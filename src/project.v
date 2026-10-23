@@ -188,17 +188,16 @@ module phoenixTtSoc #(
     reg [15:0] boot_address;
     reg [7:0] boot_byte;
     reg [7:0] mem_data;
-    reg boot_done;
     wire [7:0] cpu_gpio_out;
     assign gpio_out = cpu_gpio_out[6:0];
-    
+
     wire [4:0] gpio_interrupts = {gpio_in[4:2],
                                  gpio_in[1] | gpio_in[6],
                                  gpio_in[0] | gpio_in[5]};
 
-    wire cpu_reset = reset || !boot_done;
-    wire decode_ce = boot_done && state == CPU_DECODE;
-    wire commit_ce = boot_done && state == CPU_COMMIT;
+    wire peripheral_reset = reset || state < CPU_DECODE;
+    wire decode_ce = state == CPU_DECODE;
+    wire commit_ce = state == CPU_COMMIT;
 
     wire [15:0] address_bus;
     wire [7:0] write_data;
@@ -223,7 +222,8 @@ module phoenixTtSoc #(
 
     phoenix soc (
         .clk(clk),
-        .reset(cpu_reset),
+        .reset(reset),
+        .peripheral_reset(peripheral_reset),
         .decode_ce(decode_ce),
         .commit_ce(commit_ce),
         .mem_data(mem_data),
@@ -247,7 +247,7 @@ module phoenixTtSoc #(
         .UART_FREQ(UART_FREQ)
     ) uart (
         .clk(clk),
-        .reset(cpu_reset),
+        .reset(peripheral_reset),
         .io_in(io_in),
         .io_out(io_out),
         .address_bus(address_bus),
@@ -263,7 +263,7 @@ module phoenixTtSoc #(
         .reset(reset),
         .valid(serial_valid),
         .flash(boot_read),
-        .write(boot_write || (boot_done && mem_write_request)),
+        .write(boot_write || (state == CPU_MEMORY && mem_write_request)),
         .command_only(init_command),
         .command(state == RESET_ENABLE ? 8'h66 : 8'h99),
         .address(serial_address),
@@ -283,7 +283,6 @@ module phoenixTtSoc #(
             delay_count <= 0;
             boot_address <= 0;
             boot_byte <= 0;
-            boot_done <= 0;
             mem_data <= 0;
         end else begin
             case (state)
@@ -349,7 +348,6 @@ module phoenixTtSoc #(
                 BOOT_WRITE_GAP:
                     begin
                         if (boot_address == 16'hffff) begin
-                            boot_done <= 1;
                             state <= CPU_DECODE;
                         end else begin
                             boot_address <= boot_address + 1'b1;
@@ -562,6 +560,7 @@ endmodule
 module phoenix (
     input clk,
     input reset,
+    input peripheral_reset,
     input decode_ce,
     input commit_ce,
     input [7:0] mem_data,
@@ -614,7 +613,7 @@ module phoenix (
 
     phoenixInterruptController interrupt_controller (
         .clk(clk),
-        .reset(reset),
+        .reset(peripheral_reset),
         .interrupt_done(interrupt_done),
         .io_in(io_in),
         .io_out(io_out),
@@ -627,7 +626,7 @@ module phoenix (
 
     phoenixTimer timer (
         .clk(clk),
-        .reset(reset),
+        .reset(peripheral_reset),
         .tick_ce(commit_ce),
         .io_in(io_in),
         .io_out(io_out),
@@ -640,7 +639,7 @@ module phoenix (
 
     phoenixIo gpio (
         .clk(clk),
-        .reset(reset),
+        .reset(peripheral_reset),
         .io_in(io_in),
         .io_out(io_out),
         .address_bus(address_bus),
